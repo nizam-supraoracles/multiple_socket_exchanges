@@ -150,6 +150,14 @@ async fn handle_cach_mode(pairs: Vec<&str>) {
                         }
                     };
 
+                    let binance_error_check: serde_json::Value =  serde_json::from_str (&msg_binance)
+                        .expect("Binance response format not valids");
+
+                    if binance_error_check["result"] == "error" {
+                        eprintln!("Binance: {:?}", binance_error_check);
+                        break;
+                    }
+
                     // Serialize binance response
                     let binance_response: BinanceResponse = match  serde_json::from_str(&msg_binance) {
                         Ok(p) => p,
@@ -186,6 +194,14 @@ async fn handle_cach_mode(pairs: Vec<&str>) {
                             std::process::exit(1);
                         }
                     };
+
+                    let coinbase_error_check: serde_json::Value =  serde_json::from_str (&msg_coinbase)
+                        .expect("Coinbase response format not valids");
+
+                    if coinbase_error_check["type"] == "error" {
+                        eprintln!("Coinbase: {:?}", coinbase_error_check["reason"]);
+                        break;
+                    }
 
                     // Serialize coinbase response
                     let coinbase_response: CoinbaseResponse = match serde_json::from_str (&msg_coinbase) {
@@ -225,6 +241,14 @@ async fn handle_cach_mode(pairs: Vec<&str>) {
                             std::process::exit(1);
                         }
                     };
+
+                    let okex_error_check: serde_json::Value =  serde_json::from_str (&msg_okex)
+                        .expect("Okex response format not valids");
+
+                    if okex_error_check["event"] == "error" {
+                        eprintln!("Okex: {:?}", okex_error_check["msg"]);
+                        break;
+                    }
 
                     // Serialize okex response
                     let okex_response: OkexResponse = match serde_json::from_str (&msg_okex) {
