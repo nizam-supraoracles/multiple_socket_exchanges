@@ -2,7 +2,7 @@
     {
         "name": "binance",
         "ws_base_url": "wss://stream.binance.com:9443",
-        "req_param": ""
+        "req_param": "{\"method\": \"SUBSCRIBE\", \"params\": [], \"id\": 1}"
     },
     {
         "name": "coinbase",

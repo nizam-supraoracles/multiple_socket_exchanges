@@ -1,15 +1,16 @@
-
 pub use clap::Parser;
 use serde::{Deserialize, Serialize};
-
 
 #[derive(Parser, Debug)]
 /// argument structure
 pub struct Args {
-    #[clap(short, long, default_value = "")]
+
+    /// Mode should be cache or read, cache collect pairs data and read show the cached data
+    #[clap(short, long)]
     pub mode: String,
 
-    #[clap(short, long, default_value = "")]
+    /// Pairs should collect coins with pair
+    #[clap(short, long)]
     pub pairs: String,
 }
 
@@ -19,6 +20,14 @@ pub struct WebSocket {
     pub name: String,
     pub ws_base_url: String,
     pub req_param: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// coinbase request parameter structure
+pub struct BinanceReqParam {
+    pub method: String,
+    pub params: Vec<String>,
+    pub id: i32
 }
 
 #[derive(Debug, Serialize, Deserialize)]

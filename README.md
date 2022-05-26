@@ -10,5 +10,5 @@ The read mode should simply read and print the file to the screen.
 
 Project execution:
 - Install packages and build project using `cargo build` from project root directory.
-- Cache pairs data using `./target/debug/simple --mode=cache --pairs=btc_usdt` or `cargo run -- --mode=cache --pairs=btc_usdt`. (here we can define multiple pairs using "," ex. `--pairs=btc_usdt,eth_usdt`)
-- Read and aggregate pairs data and show to user using `./target/debug/simple --mode=read` or `cargo run -- --mode=read`.
+- Cache pairs data using this command `./target/debug/simple --mode=cache --pairs=btc_usdt` or `cargo run -- --mode=cache --pairs=btc_usdt`. (here we can define multiple pairs using "," ex. `--pairs=btc_usdt,eth_usdt`)
+- Read and aggregate pairs data and show to user using this command `./target/debug/simple --mode=read` or `cargo run -- --mode=read`.
