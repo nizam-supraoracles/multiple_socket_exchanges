@@ -1,13 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::time::Duration;
 use tokio::time;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use url::Url;
 
 mod types;
 use crate::types::*;
@@ -26,7 +24,10 @@ pub async fn start() -> WSResult<()> {
 
         if pairs != "" {
             if check_pairs(&pairs) {
-                handle_cache_mode(pairs.split(",").collect()).await?;
+                let pairs: Vec<_> = pairs.split(",").collect();
+                let pairs_string_vec: Vec<String> = pairs.iter().map(|i| i.to_string()).collect();
+
+                handle_cache_mode(pairs_string_vec).await?;
             }
         } else {
             println!("Pairs is required");
@@ -61,50 +62,39 @@ pub fn check_pairs(pairs: &str) -> bool {
 }
 
 /// handle cache mode argument and collect data from multiple exchange
-async fn handle_cache_mode(pairs: Vec<&str>) -> WSResult<()> {
+async fn handle_cache_mode(pairs: Vec<String>) -> WSResult<()> {
     // read json file of web socket urls
     let ws_details_file: File = fs::File::open("ws_details.json")?;
 
-    let ws_details: Vec<WebSocket> = serde_json::from_reader(&ws_details_file)?;
+    let ws_details: Vec<WebSocketConfig> = serde_json::from_reader(&ws_details_file)?;
 
-    let binance_ws_api: String = helpers::binance_req_url(&ws_details[0].ws_base_url, &pairs);
-    let coinbase_ws_api: &String = &ws_details[1].ws_base_url;
-    let okex_ws_api: &String = &ws_details[2].ws_base_url;
+    let mut binance_handler = WSHandler::new(&ws_details[0], SocketType::Binance, pairs.clone());
+    let mut coinbase_handler = WSHandler::new(&ws_details[1], SocketType::Coinbase, pairs.clone());
+    let mut okex_handler = WSHandler::new(&ws_details[2], SocketType::Okex, pairs.clone());
 
-    let binance_url_parse = Url::parse(&binance_ws_api)?;
-    // connect binance socket
-    let (binance_socket, _binance_response) = connect_async(binance_url_parse).await?;
+    // connect binance socket and subscribe
+    binance_handler.connect().await?;
+    binance_handler.subscribe().await?;
 
-    let (mut _binance_write, mut binance_read) = binance_socket.split();
+    // connect coinbase socket and subscribe
+    coinbase_handler.connect().await?;
+    coinbase_handler.subscribe().await?;
 
-    let binance_req_param: String =
-        helpers::create_req_params(RequestParamType::Binance, &ws_details[0].req_param, &pairs)?;
-    _binance_write
-        .send(Message::Text(binance_req_param))
-        .await?;
+    // connect okex socket and subscribe
+    okex_handler.connect().await?;
+    okex_handler.subscribe().await?;
 
-    let coinbase_url_parse = Url::parse(&coinbase_ws_api)?;
-    // connect coinbase socket
-    let coinbase_req_param: String =
-        helpers::create_req_params(RequestParamType::Coinbase, &ws_details[1].req_param, &pairs)?;
-    let (coinbase_socket, _coinbase_response) = connect_async(coinbase_url_parse).await?;
+    let binance_s = binance_handler.socket_stream.as_mut()
+        .expect("There is some issue in binance socket stream");
+    let (_, mut binance_read) = binance_s.split();
 
-    // subscribe coinbase websockets
-    let (mut coinbase_write, mut coinbase_read) = coinbase_socket.split();
+    let coinbase_s = coinbase_handler.socket_stream.as_mut()
+        .expect("There is some issue in coinbase socket stream");
+    let (_, mut coinbase_read) = coinbase_s.split();
 
-    coinbase_write
-        .send(Message::Text(coinbase_req_param))
-        .await?;
-
-    let okex_url_parse = Url::parse(&okex_ws_api)?;
-    // connect okex socket
-    let okex_req_param: String =
-        helpers::create_req_params(RequestParamType::Okex, &ws_details[2].req_param, &pairs)?;
-    let (okex_socket, _okex_response) = connect_async(okex_url_parse).await?;
-
-    // subscribe okex websocket
-    let (mut okex_write, mut okex_read) = okex_socket.split();
-    okex_write.send(Message::Text(okex_req_param)).await?;
+    let okex_s = okex_handler.socket_stream.as_mut()
+        .expect("There is some issue in okex socket stream");
+    let (_, mut okex_read) = okex_s.split();
 
     let mut pairs_cache: HashMap<String, PairsCache> = HashMap::new();
 
@@ -116,91 +106,27 @@ async fn handle_cache_mode(pairs: Vec<&str>) -> WSResult<()> {
         tokio::select! {
             msg = binance_read.next() => {
                 if let Some(msg) = msg {
-
-                    let msg_binance = parser::message_parser(msg)?;
-
-                    let binance_error_check: serde_json::Value =  serde_json::from_str(&msg_binance)?;
-
-                    if binance_error_check["result"] == "error" {
-                        eprintln!("Binance: {:?}", binance_error_check);
-                        break;
-                    }
-
-                    // Serialize binance response
-                    let binance_response: BinanceResponse = match serde_json::from_str(&msg_binance) {
-                        Ok(p) => p,
-                        Err(_) => BinanceResponse { s: "".to_string(), c: "0.0".to_string() }
-                    };
-
-                    if binance_response.s != "" {
-                        let price = binance_response.c.parse::<f64>()?;
-                        update_price_cache(&mut pairs_cache, binance_response.s.to_string(), ws_details[0].name.to_string(), price);
-                    }
-
+                    let response = parser::message_parser(SocketType::Binance,msg)?;
+                    helpers::handle_response(&mut pairs_cache,&ws_details, response)?;
                 }
             },
             msg = coinbase_read.next() => {
                 if let Some(msg) = msg {
-
-                    let msg_coinbase = parser::message_parser(msg)?;
-
-                    let coinbase_error_check: serde_json::Value =  serde_json::from_str (&msg_coinbase)?;
-
-                    if coinbase_error_check["type"] == "error" {
-                        eprintln!("Coinbase: {:?}", coinbase_error_check["reason"]);
-                        break;
-                    }
-
-                    // Serialize coinbase response
-                    let coinbase_response: CoinbaseResponse = match serde_json::from_str (&msg_coinbase) {
-                        Ok (p) => p,
-                        Err (_) => CoinbaseResponse { product_id: "".to_string(), price: "0.0".to_string() },
-                    };
-
-                    if coinbase_response.product_id != "" {
-
-                        let price = coinbase_response.price.parse::<f64>()?;
-
-                        // get pair cache and push coinbase response, name and price
-                        let key = helpers::pair_key(&coinbase_response.product_id);
-                        update_price_cache(&mut pairs_cache, key, ws_details[1].name.to_string(), price);
-                    }
+                    let response = parser::message_parser(SocketType::Coinbase,msg)?;
+                    helpers::handle_response(&mut pairs_cache,&ws_details, response)?;
                 }
             },
             msg = okex_read.next() => {
                 if let Some(msg) = msg {
 
-                    let msg_okex = parser::message_parser(msg)?;
-
-                    let okex_error_check: serde_json::Value =  serde_json::from_str(&msg_okex)?;
-
-                    if okex_error_check["event"] == "error" {
-                        eprintln!("Okex: {:?}", okex_error_check["msg"]);
-                        break;
-                    }
-
-                    // Serialize okex response
-                    let okex_response: OkexResponse = match serde_json::from_str(&msg_okex) {
-                        Ok (p) => p,
-                        Err (_) => OkexResponse { data: vec![ ] },
-                    };
-
-                    if okex_response.data.len() > 0 {
-
-                        let price = okex_response.data[0].last.parse::<f64>()?;
-
-                        // get pair cache and push okex response, name and price
-                        let key = helpers::pair_key(&okex_response.data[0].inst_id);
-                        update_price_cache(&mut pairs_cache, key, ws_details[2].name.to_string(), price);
-                    }
+                    let response = parser::message_parser(SocketType::Okex,msg)?;
+                    helpers::handle_response(&mut pairs_cache,&ws_details, response)?;
                 }
             }
             _ = interval.tick() => {
                 if interval_flag {
-
                     write_pairs_cache(pairs_cache).await?;
                     println!("Cache complete");
-
                     break;
                 }
                 interval_flag =true;
@@ -210,20 +136,8 @@ async fn handle_cache_mode(pairs: Vec<&str>) -> WSResult<()> {
     Ok(())
 }
 
-/// update price cache in hashmap
-fn update_price_cache(
-    pairs_cache: &mut HashMap<String, PairsCache>,
-    key: String,
-    name: String,
-    price: f64,
-) {
-    pairs_cache.get_mut(&key).map(|pair| {
-        pair.prices.push(PricesPairs { name, price });
-    });
-}
-
 /// insert initial key and pairs in hashmap
-fn insert_pairs(pairs: Vec<&str>, pairs_cache: &mut HashMap<String, PairsCache>) {
+fn insert_pairs(pairs: Vec<String>, pairs_cache: &mut HashMap<String, PairsCache>) {
     for pair in pairs {
         let coin: Vec<&str> = pair.split("_").collect();
 

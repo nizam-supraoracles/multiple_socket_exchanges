@@ -1,7 +1,7 @@
 use std::{io, num::ParseFloatError};
 use thiserror::Error;
-use url::ParseError;
 use tungstenite::Error as TError;
+use url::ParseError;
 
 #[derive(Error, Debug)]
 pub enum WSError {
@@ -14,5 +14,9 @@ pub enum WSError {
     #[error("Tungsnite Error")]
     TungsniteError(#[from] TError),
     #[error("ParseFloatError")]
-    ParseFloatError(#[from] ParseFloatError)
+    ParseFloatError(#[from] ParseFloatError),
+    #[error("Got Unknown Response")]
+    UnknownResponse,
+    #[error("Socket Response Error:{0}")]
+    SocketResponseError(String),
 }

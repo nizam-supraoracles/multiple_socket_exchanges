@@ -8,7 +8,6 @@ fn check_valid_pairs() {
     assert!(multiple);
 }
 
-
 #[test]
 fn check_invalid_pairs_() {
     let single = check_pairs("btcusdt");
