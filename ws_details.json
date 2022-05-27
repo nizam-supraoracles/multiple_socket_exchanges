@@ -2,16 +2,29 @@
     {
         "name": "binance",
         "ws_base_url": "wss://stream.binance.com:9443",
-        "req_param": "{\"method\": \"SUBSCRIBE\", \"params\": [], \"id\": 1}"
+        "req_param": {
+            "method": "SUBSCRIBE",
+            "params": [],
+            "id": 1
+        }
     },
     {
         "name": "coinbase",
         "ws_base_url": "wss://ws-feed.exchange.coinbase.com",
-        "req_param": "{\"type\": \"subscribe\",\"channels\": [\"ticker\"],\"product_ids\": []}"
+        "req_param": {
+            "type": "subscribe",
+            "channels": [
+                "ticker"
+            ],
+            "product_ids": []
+        }
     },
     {
         "name": "okx",
         "ws_base_url": "wss://ws.okx.com:8443/ws/v5/public",
-        "req_param": "{\"op\":\"subscribe\",\"args\":[]}"
+        "req_param": {
+            "op": "subscribe",
+            "args": []
+        }
     }
 ]

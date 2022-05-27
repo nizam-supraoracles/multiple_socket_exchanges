@@ -1,5 +1,8 @@
 pub use clap::Parser;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::errors::WSError;
 
 #[derive(Parser, Debug)]
 /// argument structure
@@ -10,7 +13,7 @@ pub struct Args {
     pub mode: String,
 
     /// Pairs should collect coins with pair
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "")]
     pub pairs: String,
 }
 
@@ -19,7 +22,7 @@ pub struct Args {
 pub struct WebSocket {
     pub name: String,
     pub ws_base_url: String,
-    pub req_param: String,
+    pub req_param: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -94,4 +97,11 @@ pub struct OkexResponseChild {
 /// okex socket response parent structure
 pub struct OkexResponse {
     pub data: Vec<OkexResponseChild>,
+}
+
+pub type WSResult<T> = Result<T,WSError>;
+pub enum RequestParamType {
+    Binance,
+    Okex,
+    Coinbase
 }
