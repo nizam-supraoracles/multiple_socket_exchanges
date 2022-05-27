@@ -37,7 +37,7 @@ pub fn create_req_params(
         if coin.len() == 2 {
             let param = match socket_type {
                 SocketType::Binance => {
-                    format!("{}{}ticker", coin[0].to_uppercase(), coin[1].to_uppercase())
+                    format!("{}{}@ticker", coin[0].to_uppercase(), coin[1].to_uppercase())
                 }
                 SocketType::Okex => {
                     format!("{}-{}", coin[0].to_uppercase(), coin[1].to_uppercase())

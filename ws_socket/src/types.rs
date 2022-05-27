@@ -9,7 +9,8 @@ use url::Url;
 use crate::{errors::WSError, helpers};
 
 #[derive(Parser, Debug)]
-/// argument structure
+#[clap(author = "Nizam", version, about)]
+/// Web socket argument structure
 pub struct Args {
     /// Mode should be cache or read, cache collect pairs data and read show the cached data
     #[clap(short, long)]
@@ -60,14 +61,14 @@ pub struct OkexReqParamArg {
     pub inst_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 /// pairs cache structure
 pub struct PairsCache {
     pub prices: Vec<PricesPairs>,
     pub aggregate: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 /// prices pairs structure
 pub struct PricesPairs {
     pub name: String,
